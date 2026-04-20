@@ -44,3 +44,36 @@ lint:
 	@echo "All source files compile successfully."
 
 all: install test train evaluate
+# --- NeuroSAR amendment targets ---------------------------------------------
+# Append these targets to the existing Makefile.
+
+.PHONY: validate biomedical reproduce clean-exports nbmake
+
+validate:
+	bash scripts/validate_spice.sh
+
+biomedical:
+	jupyter nbconvert --to notebook --execute --inplace \
+	    notebooks/08_Biomedical_Case_Study.ipynb
+
+nbmake:
+	pytest --nbmake --timeout=600 notebooks/07_SPICE_Validation.ipynb \
+	    notebooks/08_Biomedical_Case_Study.ipynb
+
+reproduce: clean-exports
+	@echo ">>> [1/5] Setting up environment"
+	bash scripts/setup_env.sh
+	@echo ">>> [2/5] Running full demo (dataset → train → eval)"
+	python scripts/run_demo.py --epochs 100 --samples 4000
+	@echo ">>> [3/5] Running SPICE validation (notebook 07)"
+	$(MAKE) validate
+	@echo ">>> [4/5] Running biomedical case study (notebook 08)"
+	$(MAKE) biomedical
+	@echo ">>> [5/5] Running unit tests"
+	pytest tests/ -v
+	@echo ">>> Reproduction complete. See data/exports/ and assets/figures/"
+
+clean-exports:
+	rm -rf data/exports/*.json data/exports/*.npz
+	rm -f assets/figures/spice_*.png assets/figures/metasta*.png \
+	      assets/figures/biomedical_*.png
